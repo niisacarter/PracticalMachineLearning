@@ -1,0 +1,111 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Niisa Carter"
+date: "June 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Practical Machine Learning Coursera Project
+
+## Prediction Assignment
+
+### Overview
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, the goal is to use data from accelerometers on the belt, forearm, arm, and dumbbell of 6 participants.
+
+### Objective
+  
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self-movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks.
+  
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
+More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset)
+Read more: http://groupware.les.inf.puc-rio.br/har#ixzz3xsbS5bVX
+  
+### Datset Cleansing
+
+#### Dataset Source
+The data for this project come from http://groupware.les.inf.puc-rio.br/har. 
+
+#### Load the Data
+Install and load the needed R libraries:
+```{r}
+library(knitr)
+library (caret)
+library(randomForest)
+```
+  
+Load the dataset from the given locations:
+The training data for this project are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+The test data are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+```{r}
+#create the directory to store the data
+
+if(!file.exists("./data")){dir.create("./data")}
+# if the files haven't already been download, then download the training and testing datasets
+
+trainingfile <- "pml-training.csv"
+if (!file.exists(trainingfile)) {
+	trainingdata <- read.csv(url("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
+}
+testingfile <- "pml-testing.csv"
+if (!file.exists(testingfile)) {
+	testingdata <- read.csv(url("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
+}
+```
+  
+Partition the training dataset into a training and dataset
+
+```{r}
+subtrainingdata <- createDataPartition(trainingdata$classe, p=0.7, list = FALSE)
+subtrainingdataset <- trainingdata[subtrainingdata,]
+subtestingdataset <- trainingdata[-subtrainingdata,]
+```
+
+Clean the data by removing any existing NA values as well as any near zero variances values.
+  
+```{r}
+#remove the NA values
+nonas <- sapply(subtrainingdataset, function(x) mean(is.na(x))) > 0.95
+subtrainingdataset <- subtrainingdataset[,nonas==FALSE]
+subtestingdataset <- subtestingdataset[, nonas==FALSE]
+
+# remove near zero variance values
+nonzv <- nearZeroVar(subtrainingdataset)
+subtrainingdataset <- subtrainingdataset[, -nonzv]
+subtestingdataset <- subtestingdataset[, -nonzv]
+```
+  
+### Building the Prediction Model
+
+#### Random Forest
+  
+```{r}
+# determine a model fit on the training dataset
+set.seed(2016)
+rftrcontrol <- trainControl(method="cv", number=3, verboseIter=FALSE)
+rfmodFittrain <- train(classe ~ ., method="rf", data=subtrainingdataset, trControl=rftrcontrol)
+rfmodFittrain$finalModel
+
+# predict the measure of accuracy of the model fit on the training dataset
+rfpredicttrain <- predict(rfmodFittrain, subtrainingdataset)
+rfconfMatrixtrain <- confusionMatrix(rfpredicttrain, subtrainingdataset$classe)
+rfconfMatrixtrain
+```
+  
+The outcome above shows that the accuracy is 99% (sample error of 0.01%). Random Forest is accurate enough to be applied to the test data.
+
+### Apply the Prediction Model to the Test Data 
+  
+The selected model, Random Forest is applied to predict the test dataset and give the quiz results.
+```{r}
+rfpredicttest <- predict(rfmodFittrain, newdata=testingdata)
+#rfconfMatrixtest <- confusionMatrix(rfpredicttest, testingdata$classe)
+rfpredicttest 
+```
+
